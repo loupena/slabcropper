@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         body { margin: 0; }
         .spinner { animation: spin 0.8s linear infinite; }
@@ -355,10 +356,26 @@ function PSASlabCropper() {
 
   const downloadAll = async () => {
     const completed = images.filter(img => img.status === 'done' && img.processed);
+    if (completed.length === 0) return;
+    
+    const zip = new JSZip();
+    
     for (const img of completed) {
-      downloadOne(img.processed, img.name);
-      await new Promise(r => setTimeout(r, 300));
+      const base64Data = img.processed.split(',')[1];
+      const fileName = img.name.replace(/\.[^/.]+$/, '') + '_cropped.png';
+      zip.file(fileName, base64Data, { base64: true });
     }
+    
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'psa_slabs_cropped.zip';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const completedCount = images.filter(img => img.status === 'done').length;
@@ -427,7 +444,7 @@ function PSASlabCropper() {
                   disabled={completedCount === 0}
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-600 rounded-lg text-sm font-medium transition-colors"
                 >
-                  Download All ({completedCount})
+                  Download All as ZIP ({completedCount})
                 </button>
                 <button
                   onClick={reset}
